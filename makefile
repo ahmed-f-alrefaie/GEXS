@@ -2,7 +2,7 @@ goal:   gpu_cross.x
 
 
 
-PLAT = GPU_II
+PLAT = GPU_II_f
 
 
 

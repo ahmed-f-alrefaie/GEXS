@@ -42,7 +42,7 @@ BaseProfile::~BaseProfile(){
 void BaseProfile::Initialize(){
 	profile = GetProfile();
 	double ref_temp;	
-	double ref_press;
+	double ref_press=1.0;
 	//Initialize the stateReader TODO: Use Factory Design Pattern for this
 	if(input->GetFileType()==HITRAN_TYPE){
 		state_reader = (StateReader*)(new HITRANStateReader( input->GetTransFiles()[0] , input->GetPartition(),input->GetPressure(),input->GetTemperature(),input->GetHitranMixture()   ));
@@ -50,8 +50,8 @@ void BaseProfile::Initialize(){
 		ref_press = 1.0;
 	}else if(input->GetFileType()==EXOMOL_TYPE){
 		state_reader = (StateReader*)(new ExomolStateReader( input->GetStateFile() , input->GetPartition(),input->GetPressure() ,input->GetBroadeners()[0],input->GetGamma(),input->GetGammaN()));
-		ref_temp = 296.0;
-		ref_press= 0.986923267;	
+		ref_temp = 256.0;
+		ref_press= 1.0/0.986923267;	
 	//	exit(0);
 	}else{
 		exit(0);
@@ -68,7 +68,7 @@ void BaseProfile::Initialize(){
 	num_trans_fit=manager->GetNtrans();
 
 
-	manager->InitializeConstants(input->GetHalfWidth(),input->GetTemperature(), state_reader->ComputePartition(input->GetTemperature()),dfreq,input->GetMeanMass(),input->GetPressure(),ref_temp);
+	manager->InitializeConstants(input->GetHalfWidth(),input->GetTemperature(), state_reader->ComputePartition(input->GetTemperature()),dfreq,input->GetMeanMass(),input->GetPressure(),ref_temp,ref_press);
 
 
 	h_energies = new double[num_trans_fit];

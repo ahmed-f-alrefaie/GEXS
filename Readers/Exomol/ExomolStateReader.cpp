@@ -51,19 +51,18 @@ void ExomolStateReader::InitializeBroadener(std::string broadener){
 	string code;
 	while(getline(i_broad,line)){
 		//
+		code = "a0";
 		vector<string> split_line = split(line);
 		Ji=atoi(trim(split_line[3]).c_str());
-		if(trim(split_line[0])=="a0"){
-			code = "a0";
-			Jf=-1;
-			gam=atof(trim(split_line[1]).c_str());
-			n=atof(trim(split_line[2]).c_str());
-		}else if(trim(split_line[0])=="a1"){
+		Jf=-1;
+		gam=atof(trim(split_line[1]).c_str());
+		n=atof(trim(split_line[2]).c_str());
+		if(trim(split_line[0])=="a1"){
 			code="a1";
 			Jf=atoi(trim(split_line[4]).c_str());	
-		}else{
-			continue;
 		}
+		if(trim(split_line[0])!="a0")
+			continue;
 		//Construct the code
 		std::stringstream key;
 		key<<code<<Ji<<Jf;
@@ -71,7 +70,7 @@ void ExomolStateReader::InitializeBroadener(std::string broadener){
 		//broadData broad;
 		broad_info.broad_map[key.str()].gamma = gam;
 		broad_info.broad_map[key.str()].n = n;
-		//broad_info.default_gamma = 0.1;	
+		broad_info.default_gamma = 0.1;	
 		//broad_info.broad_map[key.str()]= broad;
 		
 		
@@ -182,4 +181,5 @@ double ExomolStateReader::ComputePartition(double temperature){
 	//}
 	return partition;
 }
+
 

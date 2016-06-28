@@ -49,6 +49,41 @@ __device__ double humlick(double x, double y){
 
 };
 
+__device__ float humlickf(float x, float y){
+	thrust::complex<float> T = thrust::complex<float>(y, -x);
+	thrust::complex<float> humlic1;
+   // double complex T = y - x*I;
+    float S = fabs(x) + y;
+    if (S >= 15.0f) {
+        // Region I
+        humlic1 = T*0.5641896f/(0.5f+T*T);
+        //fprintf(stdout, "I");
+     
+    }else if (S >= 5.5f) {
+        // Region II
+        thrust::complex<float> U = T * T;
+        humlic1 = T * (1.410474f + U*0.5641896f)/(0.75f + U*(3.0f+U));
+        //fprintf(stdout, "II");
+    }else if (y >= 0.195f * fabs(x) - 0.176f) {
+        // Region III
+        humlic1 = (16.4955f+T*(20.20933f+T*(11.96482f
+                +T*(3.778987f+T*0.5642236f)))) / (16.4955f+T*(38.82363f
+                +T*(39.27121f+T*(21.69274f+T*(6.699398f+T)))));
+        //fprintf(stdout, "III");
+    }else{
+    // Region IV
+    thrust::complex<float> U = T * T;
+    //double complex humlic1;
+    humlic1 = thrust::exp(U)-T*(36183.31f-U*(3321.9905f-U*(1540.787f-U*(219.0313f-U*
+       (35.76683f-U*(1.320522f-U*0.56419f))))))/(32066.6f-U*(24322.84f-U*
+       (9022.228f-U*(2186.181f-U*(364.2191f-U*(61.57037f-U*(1.841439f-U)))))));
+    //fprintf(stdout, "IV");
+    }    
+    return humlic1.real();
+
+};
+
+
 __device__ double voigt_threegausshermite(double x, double y,double xxyy){
 	
 	return 1.1181635900*y*IPI/(xxyy) + 2.0*IPI*y*(xxyy + 1.499988068)/( (xxyy+1.499988068)*(xxyy+1.499988068) - 4*x*x*1.499988068);
@@ -104,7 +139,7 @@ __global__ void  device_compute_pressure(double*  g_gamma,const double*  g_n,con
 	double gammaL;
 	if(g_idx < N_ener){
 			
-			gammaL = g_gamma[g_idx]*pow(cross_constants.ref_temp/temperature,g_n[g_idx])*(pressure/cross_constants.ref_press);
+			gammaL = g_gamma[g_idx]*pow(cross_constants.ref_temp/temperature,g_n[g_idx])*(pressure*cross_constants.ref_press);
 			g_gamma[g_idx] = gammaL;
 			
 	}
@@ -365,11 +400,11 @@ __global__ void device_compute_doppler_block(const double*  g_freq, double* g_cs
 	}
 
 }
-__global__ void device_compute_voigt(const double*  g_freq, double* g_cs,const double*   g_nu,const double*  g_abscoef,const double*  g_gamma,const double temperature,const double pressure,const double lorentz_cutoff,const int N,const int N_ener,const int start_idx){
+__global__ void device_compute_voigt(const double*  g_freq, double* g_cs,const double*   g_nu,const double*  g_abscoef,const double*  g_gamma,const double temperature,const double pressure,const int N,const int N_ener,const int start_idx){
 	//The stored shared data
-	//typedef cub::BlockReduce<double, VOIGT_BLOCK> BlockReduce;
-	//__shared__ typename BlockReduce::TempStorage temp_storage;
-	__shared__ double l_cs_result[VOIGT_BLOCK];
+	typedef cub::BlockReduce<double, VOIGT_BLOCK> BlockReduce;
+	__shared__ typename BlockReduce::TempStorage temp_storage;
+	//__shared__ double l_cs_result[VOIGT_BLOCK];
 	//__shared__ double l_correction[VOIGT_BLOCK];
 	//Get the global and local thread number
 	int b_idx = blockIdx.x;
@@ -390,76 +425,38 @@ __global__ void device_compute_voigt(const double*  g_freq, double* g_cs,const d
 
 
 	//if(g_idx==9999)  printf("%12.6f\n",freq);	
-	l_cs_result[l_idx] = 0.0;
+	//l_cs_result[l_idx] = 0.0;
 	//l_correction[l_idx] = 0.0;
 	for(int i = l_idx; i < N_ener; i+=VOIGT_BLOCK){
 		nu = 0.0;
 		//Read value of nu
 		nu = g_nu[i];
 		dfreq_ = nu-freq;
-		if(dfreq_ < -lorentz_cutoff)
+		if(dfreq_ < -LORENTZ_CUTOFF)
 			continue;
-		if(dfreq_ > lorentz_cutoff)
+		if(dfreq_ > LORENTZ_CUTOFF)
 			break; //We are done here let another queued block do something
 
 		//abscoef = g_abscoef[i];	
 		gammaG = SQRTLN2/(nu*dpwcoeff);
 		x = dfreq_*gammaG;
-	
-		//if(cs_val > 0){
-			//Lets check contribution, if its close to epsilon then dont bother
-		//	if(abscoef/cs_val < 1e-12)
-		//		continue;
-		//}		
-				
 
 
 		y =g_gamma[i]*gammaG;
 
-		//double xxyy = x * x + y * y;
-		//double voigt;// = voigt_916(x,y,0.9);
-		//voigt = humlick(x,y);
-		/*
-		
-		////Algorithm 916///
-		if(xxyy < 100.0){
-			voigt = voigt_916(x,y,0.9);
-			//cs_val+=g_abscoef[i]*voigt_check*gammaG*ISQRTPI;					
-		}else if(xxyy < 1.0e6){
-			//3-point gauss hermite
-			voigt = 1.1181635900*y/(PI*xxyy) + 2.0*0.2954089751*(xxyy + 1.5)/( (xxyy+1.5)*(xxyy+1.5) - 4*x*x*1.5);
-			//cs_val+=g_abscoef[i]*ISQRTPI*gammaG;
-		}else{
-			voigt = y/(PI*xxyy); //This is basically lorentz
-			//cs_val+= g_abscoef[i]*ISQRTPI*gammaG;
-		}
-		*/
-		cs_val+= g_abscoef[i]*humlick(x,y)*gammaG;
-		//x = cs_val + y;
-		//correction = (x - cs_val) - y; 
-		//cs_val=x;
+		cs_val+= g_abscoef[i]*humlickf(x,y)*gammaG;
 		
 
 	}
-	
-	//Store results into shared memory
-	l_cs_result[l_idx] = cs_val;
-	cs_val = 0;
+
 	//Wait for everone to finish nicely
-	__syncthreads();
-	if(l_idx == 0){
-		for(int i = 0; i < VOIGT_BLOCK; i++)
-			cs_val+=l_cs_result[i];
-		
-		g_cs[start_idx+b_idx]+=cs_val*ISQRTPI;		
-	}
-//	aggregate = BlockReduce(temp_storage).Sum(cs_val);	
-	//if(l_idx==0)g_cs[start_idx+b_idx]+=aggregate*ISQRTPI; //cs_val;		
+	aggregate = BlockReduce(temp_storage).Sum(cs_val);	
+	if(l_idx==0)g_cs[start_idx+b_idx]+=aggregate*ISQRTPI; //cs_val;		
 	
 
 }
 
-__global__ void device_compute_voigt_exact(const double*  g_freq, double* g_cs,const double*   g_nu,const double*  g_abscoef,const double*  g_gamma,const double temperature,const double pressure,const double lorentz_cutoff,const int N,const int N_ener,const int start_idx){
+__global__ void device_compute_voigt_exact(const double*  g_freq, double* g_cs,const double*   g_nu,const double*  g_abscoef,const double*  g_gamma,const double temperature,const double pressure,const int N,const int N_ener,const int start_idx){
 	//The stored shared data
 	typedef cub::BlockReduce<double, VOIGT_BLOCK> BlockReduce;
 	__shared__ typename BlockReduce::TempStorage temp_storage;
@@ -493,9 +490,9 @@ __global__ void device_compute_voigt_exact(const double*  g_freq, double* g_cs,c
 		//Read value of nu
 		nu = g_nu[i];
 		dfreq_ = nu-freq;
-		if(dfreq_ < -lorentz_cutoff)
+		if(dfreq_ < -LORENTZ_CUTOFF)
 			continue;
-		if(dfreq_ > lorentz_cutoff)
+		if(dfreq_ > LORENTZ_CUTOFF)
 			break; //We are done here let another queued block do something
 
 		//abscoef = g_abscoef[i];	
@@ -583,12 +580,12 @@ __global__ void device_compute_voigt_exact(const double*  g_freq, double* g_cs,c
 }
 
 
-__global__ void device_compute_voigt_II(const double*  g_freq, double* g_cs,const double*   g_nu,const double*  g_abscoef,const double*  g_gamma,const double temperature,const double pressure,const double lorentz_cutoff,const int N,const int N_ener,const int start_idx){
+__global__ void device_compute_voigt_II(const double*  g_freq, double* g_cs,const double*   g_nu,const double*  g_abscoef,const double*  g_gamma,const double temperature,const double pressure,const int N,const int N_ener,const int start_idx){
 	//The stored shared data
 	//typedef cub::WarpReduce<int> WarpReduceI;
-	__shared__ double l_nu[VOIGT_BLOCK];
-	__shared__ double l_abscoef[VOIGT_BLOCK];
-	__shared__ double l_gamma[VOIGT_BLOCK];
+	__shared__ double l_nu[VOIGT_SHARED_SIZE];
+	__shared__ double l_abscoef[VOIGT_SHARED_SIZE];
+	__shared__ double l_gamma[VOIGT_SHARED_SIZE];
 	//__shared__ int l_leave[VOIGT_BLOCK];
 	//__shared__ int l_continue[VOIGT_BLOCK];
 	//typedef cub::BlockReduce<int, VOIGT_BLOCK> BlockReduce;
@@ -618,7 +615,7 @@ __global__ void device_compute_voigt_II(const double*  g_freq, double* g_cs,cons
 
 	//if(g_idx==9999)  printf("%12.6f\n",freq);	
 
-	for(int i = 0; i < N_ener; i+=VOIGT_BLOCK){
+	for(int i = 0; i < N_ener; i+=VOIGT_SHARED_SIZE){
 		l_nu[l_idx] =  1e100;
 		l_abscoef[l_idx] = 0.0;
 		//leave=1;
@@ -662,7 +659,7 @@ __global__ void device_compute_voigt_II(const double*  g_freq, double* g_cs,cons
 		if(continue_cal==0)
 			continue;
 		*/
-		for(int j = 0; j < VOIGT_BLOCK; j++){
+		for(int j = 0; j < VOIGT_SHARED_SIZE; j++){
 
 			nu = l_nu[j];
 
@@ -683,7 +680,7 @@ __global__ void device_compute_voigt_II(const double*  g_freq, double* g_cs,cons
 			x =abs(dfreq_)*gammaG;
 			y =l_gamma[j]*gammaG;
 			
-			cs_val+=l_abscoef[j]*humlick(x,y)*gammaG*ISQRTPI;
+			cs_val+=l_abscoef[j]*humlickf(x,y)*gammaG;
 			//*__expf(temp_3*dfreq_*dfreq_);
 
 			
@@ -694,7 +691,7 @@ __global__ void device_compute_voigt_II(const double*  g_freq, double* g_cs,cons
 	}
 	
 
-	if(g_idx < N) g_cs[start_idx+g_idx]+=cs_val;
+	if(g_idx < N) g_cs[start_idx+g_idx]+=cs_val*ISQRTPI;
 
 
 
@@ -837,16 +834,16 @@ __host__ void gpu_compute_voigt_profile(double* g_freq, double* g_intens, double
 		device_compute_pressure<<<gridSize,blockSize,0,stream>>>(g_gamma,g_n ,temp,press,N_ener);
 		//device_compute_abscoefs<<<gridSize,blockSize,0,stream>>>(g_energies,g_gns,g_nu,g_aif,g_abs,temp,part,N_ener);
 				
-		//blockSize = VOIGT_BLOCK;
+		//blockSize = VOIGT_SHARED_SIZE;
 		//gridSize = (int)ceil((float)Npoints/(float)blockSize);
-		//device_compute_voigt_II<<<gridSize,blockSize,0,stream>>>(g_freq, g_intens,g_nu,g_abs,g_gamma,sqrt(temp),press,LORENTZ_CUTOFF,Npoints,N_ener,start_idx);
+		//device_compute_voigt_II<<<gridSize,blockSize,0,stream>>>(g_freq, g_intens,g_nu,g_abs,g_gamma,sqrt(temp),press,Npoints,N_ener,start_idx);
 		//
 		
 		blockSize = VOIGT_BLOCK;
 		gridSize = Npoints;
 		//cudaDeviceSetSharedMemConfig() 
 		cudaFuncSetCacheConfig(device_compute_voigt, cudaFuncCachePreferL1);
-		device_compute_voigt<<<gridSize,blockSize,0,stream>>>(g_freq, g_intens,g_nu,g_abs,g_gamma,sqrt(temp),press,LORENTZ_CUTOFF,Npoints,N_ener,start_idx);
+		device_compute_voigt<<<gridSize,blockSize,0,stream>>>(g_freq, g_intens,g_nu,g_abs,g_gamma,sqrt(temp),press,Npoints,N_ener,start_idx);
 		
 }
 
