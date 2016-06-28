@@ -22,7 +22,7 @@ public:
 		virtual void InitializeVectors(int Npoints)=0;
 		virtual void InitializeVectors(int Npoints,int num_cs)=0;
 		//virtual void InitializeVectors(int Npoints,int N_intens)=0;
-		virtual void InitializeConstants(double half_width,double temperature, double partition,double dfreq,double meanmass,double pressure=10.0,double ref_temp=296.0)=0;
+		virtual void InitializeConstants(double half_width,double temperature, double partition,double dfreq,double meanmass,double pressure=10.0,double ref_temp=296.0,double ref_press=1.0)=0;
 		virtual void TransferVectors(size_t Nener,double* h_energies, double* h_nu, double* h_aif,int* h_gns,double* h_gamma=NULL,double * h_n=NULL)=0;
 		virtual void TransferFreq(double* h_freq,double* h_intens,int N)=0;
 		virtual void ExecuteCrossSection(int N, int N_ener,int start_idx)=0;

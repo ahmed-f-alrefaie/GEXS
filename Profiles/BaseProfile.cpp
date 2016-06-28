@@ -42,14 +42,16 @@ BaseProfile::~BaseProfile(){
 void BaseProfile::Initialize(){
 	profile = GetProfile();
 	double ref_temp;	
-	
+	double ref_press;
 	//Initialize the stateReader TODO: Use Factory Design Pattern for this
 	if(input->GetFileType()==HITRAN_TYPE){
 		state_reader = (StateReader*)(new HITRANStateReader( input->GetTransFiles()[0] , input->GetPartition(),input->GetPressure(),input->GetTemperature(),input->GetHitranMixture()   ));
 		ref_temp = 296.0;
+		ref_press = 1.0;
 	}else if(input->GetFileType()==EXOMOL_TYPE){
 		state_reader = (StateReader*)(new ExomolStateReader( input->GetStateFile() , input->GetPartition(),input->GetPressure() ,input->GetBroadeners()[0],input->GetGamma(),input->GetGammaN()));
-		ref_temp = 500.0;	
+		ref_temp = 296.0;
+		ref_press= 0.986923267;	
 	//	exit(0);
 	}else{
 		exit(0);

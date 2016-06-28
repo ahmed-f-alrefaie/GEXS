@@ -48,10 +48,10 @@ void MultiGpuManager::InitializeVectors(int Npoints,int num_cs){
 
 }
 
-void MultiGpuManager::InitializeConstants(double half_width,double temperature, double partition,double dfreq,double meanmass,double pressure,double ref_temp){
+void MultiGpuManager::InitializeConstants(double half_width,double temperature, double partition,double dfreq,double meanmass,double pressure,double ref_temp,double ref_press){
 
 	for(int i = 0; i < t_num_gpus; i++){
-		gpu_managers[i]->InitializeConstants(half_width,temperature, partition,dfreq,meanmass,pressure,ref_temp);
+		gpu_managers[i]->InitializeConstants(half_width,temperature, partition,dfreq,meanmass,pressure,ref_temp,ref_press);
 	}
 
 

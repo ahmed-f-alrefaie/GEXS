@@ -103,7 +103,7 @@ void OpenMPManager::InitializeVectors(int Npoints,int num_cs){
 
 }
 
-void OpenMPManager::InitializeConstants(double half_width,double temperature, double partition,double dfreq,double meanmass,double pressure,double ref_temp){
+void OpenMPManager::InitializeConstants(double half_width,double temperature, double partition,double dfreq,double meanmass,double pressure,double ref_temp,double ref_press){
 		m_half_width=half_width;
 		m_temperature=temperature;
 		m_partition=partition;

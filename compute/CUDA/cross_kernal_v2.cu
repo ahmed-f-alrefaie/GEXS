@@ -98,13 +98,13 @@ __global__ void device_compute_abscoefs(const double* g_energies,const int*  g_g
 
 }
 
-__global__ void  device_compute_pressure(double*  g_gamma,const double*  g_n,const double temperature, const int N_ener){
+__global__ void  device_compute_pressure(double*  g_gamma,const double*  g_n,const double temperature,const double pressure, const int N_ener){
 
 	int g_idx = blockIdx.x * blockDim.x + threadIdx.x;
 	double gammaL;
 	if(g_idx < N_ener){
 			
-			gammaL = g_gamma[g_idx]*pow(cross_constants.ref_temp/temperature,g_n[g_idx]);
+			gammaL = g_gamma[g_idx]*pow(cross_constants.ref_temp/temperature,g_n[g_idx])*(pressure/cross_constants.ref_press);
 			g_gamma[g_idx] = gammaL;
 			
 	}
@@ -367,9 +367,9 @@ __global__ void device_compute_doppler_block(const double*  g_freq, double* g_cs
 }
 __global__ void device_compute_voigt(const double*  g_freq, double* g_cs,const double*   g_nu,const double*  g_abscoef,const double*  g_gamma,const double temperature,const double pressure,const double lorentz_cutoff,const int N,const int N_ener,const int start_idx){
 	//The stored shared data
-	typedef cub::BlockReduce<double, VOIGT_BLOCK> BlockReduce;
-	__shared__ typename BlockReduce::TempStorage temp_storage;
-	//__shared__ double l_cs_result[VOIGT_BLOCK];
+	//typedef cub::BlockReduce<double, VOIGT_BLOCK> BlockReduce;
+	//__shared__ typename BlockReduce::TempStorage temp_storage;
+	__shared__ double l_cs_result[VOIGT_BLOCK];
 	//__shared__ double l_correction[VOIGT_BLOCK];
 	//Get the global and local thread number
 	int b_idx = blockIdx.x;
@@ -390,7 +390,7 @@ __global__ void device_compute_voigt(const double*  g_freq, double* g_cs,const d
 
 
 	//if(g_idx==9999)  printf("%12.6f\n",freq);	
-	//l_cs_result[l_idx] = 0.0;
+	l_cs_result[l_idx] = 0.0;
 	//l_correction[l_idx] = 0.0;
 	for(int i = l_idx; i < N_ener; i+=VOIGT_BLOCK){
 		nu = 0.0;
@@ -443,25 +443,18 @@ __global__ void device_compute_voigt(const double*  g_freq, double* g_cs,const d
 	}
 	
 	//Store results into shared memory
-	//l_cs_result[l_idx] = cs_val;
-	//l_correction[l_idx] = correction;
-	//cs_val
+	l_cs_result[l_idx] = cs_val;
+	cs_val = 0;
 	//Wait for everone to finish nicely
 	__syncthreads();
-	//if(l_idx == 0){
-		//cs_val = g_cs[start_idx+b_idx];
-		//correction = 0;		
-		//for(int i = 0; i < VOIGT_BLOCK; i++)
-		//	correction += l_correction[i];
-		/*for(int i = 0; i < VOIGT_BLOCK; i++){
-			y = l_cs_result[i] - correction;
-			x = cs_val + y;
-			correction = (x - cs_val) - y;
-			cs_val=x;
-		}*/
-	//}
-	aggregate = BlockReduce(temp_storage).Sum(cs_val);	
-	if(l_idx==0)g_cs[start_idx+b_idx]+=aggregate*ISQRTPI; //cs_val;		
+	if(l_idx == 0){
+		for(int i = 0; i < VOIGT_BLOCK; i++)
+			cs_val+=l_cs_result[i];
+		
+		g_cs[start_idx+b_idx]+=cs_val*ISQRTPI;		
+	}
+//	aggregate = BlockReduce(temp_storage).Sum(cs_val);	
+	//if(l_idx==0)g_cs[start_idx+b_idx]+=aggregate*ISQRTPI; //cs_val;		
 	
 
 }
@@ -841,7 +834,7 @@ __host__ void gpu_compute_voigt_profile(double* g_freq, double* g_intens, double
 		int blockSize = 1024;
 		int gridSize = (int)ceil((float)N_ener/(float)blockSize);
 		device_compute_abscoefs<<<gridSize,blockSize,0,stream>>>(g_energies,g_gns,g_nu,g_aif,g_abs,temp,part,N_ener);
-		device_compute_pressure<<<gridSize,blockSize,0,stream>>>(g_gamma,g_n ,temp,N_ener);
+		device_compute_pressure<<<gridSize,blockSize,0,stream>>>(g_gamma,g_n ,temp,press,N_ener);
 		//device_compute_abscoefs<<<gridSize,blockSize,0,stream>>>(g_energies,g_gns,g_nu,g_aif,g_abs,temp,part,N_ener);
 				
 		//blockSize = VOIGT_BLOCK;

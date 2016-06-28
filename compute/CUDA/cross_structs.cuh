@@ -9,6 +9,7 @@ struct cross_section_data{
 	double partition;
 	double ln2;
 	double ref_temp;
+	double ref_press;
 	double cmcoef;
 	double dfreq;
 	double dpwcoeff;

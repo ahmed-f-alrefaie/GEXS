@@ -22,7 +22,7 @@ GpuManager::~GpuManager(){
 }
 
 
-void GpuManager::InitializeConstants(double half_width,double temperature, double partition,double dfreq,double mean_mass,double pressure,double ref_temp){
+void GpuManager::InitializeConstants(double half_width,double temperature, double partition,double dfreq,double mean_mass,double pressure,double ref_temp,double ref_press){
 	cudaSetDevice(gpu_id);
 	cross_section_data cross_constants;
 
@@ -46,6 +46,7 @@ void GpuManager::InitializeConstants(double half_width,double temperature, doubl
 	cross_constants.temperature = temperature;
 	cross_constants.mean_mass = mean_mass;
 	cross_constants.pressure = pressure;
+	cross_constants.ref_press = ref_press;
 	copy_intensity_info(&cross_constants);
 	CheckCudaError("Copy Constants");
 
