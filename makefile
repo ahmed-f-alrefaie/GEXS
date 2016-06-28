@@ -1,8 +1,8 @@
-goal:   gpu_cross.x
+goal:   GEXS.x
 
 
 
-PLAT = GPU_II_f
+PLAT = cobweb
 
 
 
@@ -45,8 +45,8 @@ LIB = -lifcore -limf -lpthread $(CUDA_LIB) -openmp
 OBJ =  exomol_functions.o  Input.o Timer.o Util.o HITRANStateReader.o BD_TIPS_2011_v1p0.o ExomolStateReader.o BaseProfile.o BaseManager.o StateReader.o  OpenMPManager.o read_compress_trans.o bzlib.o profiles.o HybridManager.o $(CUDA_OBJ)
       # cprio.o
 
-gpu_cross.x:       $(OBJ) main.o
-	$(ICC) -o gpu_cross_$(PLAT).x $(OBJ) main.o /home/ucapfal/bz2/bzip2-1.0.6/libbz2.a $(ICCFLAGS) $(LIB) $(INC)
+GEXS.x:       $(OBJ) main.o
+	$(ICC) -o GEXS_$(PLAT).x $(OBJ) main.o /home/ucapfal/bz2/bzip2-1.0.6/libbz2.a $(ICCFLAGS) $(LIB) $(INC)
 
 main.o:       main.cpp $(OBJ) 
 	$(ICC) -c main.cpp $(ICCFLAGS)
